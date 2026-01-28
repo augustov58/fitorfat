@@ -194,6 +194,23 @@ export function useGroup(groupId: string | null) {
     return true;
   }, []);
 
+  // Delete a user (and their checkins via CASCADE)
+  const deleteUser = useCallback(async (userId: string): Promise<boolean> => {
+    const { error } = await supabase
+      .from('users')
+      .delete()
+      .eq('id', userId);
+
+    if (error) {
+      setError(error.message);
+      return false;
+    }
+
+    setUsers(prev => prev.filter(u => u.id !== userId));
+    setCheckins(prev => prev.filter(c => c.user_id !== userId));
+    return true;
+  }, []);
+
   return {
     group,
     users,
@@ -205,6 +222,7 @@ export function useGroup(groupId: string | null) {
     addUser,
     addCheckin,
     deleteCheckin,
+    deleteUser,
     clearError: () => setError(null)
   };
 }

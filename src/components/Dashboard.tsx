@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
   Dumbbell, ChevronLeft, ChevronRight, Flame, 
-  Trophy, Target, Trash2, X, Loader2, LogOut, Copy, Check
+  Trophy, Target, Trash2, X, Loader2, LogOut, Copy, Check, UserMinus
 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, addMonths, subMonths, parseISO } from 'date-fns';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
@@ -16,7 +16,7 @@ export function Dashboard() {
   const navigate = useNavigate();
   const userId = localStorage.getItem('fitorfat_user_id');
   
-  const { group, users, checkins, loading, addCheckin, deleteCheckin, error, clearError } = useGroup(groupId || null);
+  const { group, users, checkins, loading, addCheckin, deleteCheckin, deleteUser, error, clearError } = useGroup(groupId || null);
   const [timeRange, setTimeRange] = useState<TimeRange>('30d');
   const { stats, chartData } = useStats(users, checkins, timeRange);
   
@@ -30,6 +30,7 @@ export function Dashboard() {
   });
   const [submitting, setSubmitting] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const currentUser = users.find(u => u.id === userId);
   
@@ -88,6 +89,15 @@ export function Dashboard() {
     }
   };
 
+  const handleDeleteUser = async () => {
+    if (!userId) return;
+    const success = await deleteUser(userId);
+    if (success) {
+      localStorage.removeItem('fitorfat_user_id');
+      navigate(`/group/${groupId}`);
+    }
+  };
+
   const copyCode = async () => {
     if (group) {
       await navigator.clipboard.writeText(group.code);
@@ -136,6 +146,13 @@ export function Dashboard() {
               </button>
             </div>
           </div>
+          <button
+            onClick={() => setShowDeleteConfirm(true)}
+            className="p-2 text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded-lg transition-all"
+            title="Leave group"
+          >
+            <UserMinus className="w-5 h-5" />
+          </button>
           <button
             onClick={() => navigate(`/group/${groupId}`)}
             className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
@@ -497,6 +514,38 @@ export function Dashboard() {
                 )}
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete User Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm bg-slate-800 rounded-2xl border border-slate-700 p-6 animate-fade-in">
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <UserMinus className="w-8 h-8 text-red-400" />
+              </div>
+              <h3 className="font-semibold text-lg mb-2">Leave Group?</h3>
+              <p className="text-slate-400 text-sm">
+                This will remove you from <strong>{group?.name}</strong> and delete all your check-ins. This cannot be undone.
+              </p>
+            </div>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 py-3 bg-slate-700 rounded-xl font-medium hover:bg-slate-600 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteUser}
+                className="flex-1 py-3 bg-red-600 rounded-xl font-medium hover:bg-red-500 transition-all"
+              >
+                Leave
+              </button>
+            </div>
           </div>
         </div>
       )}
