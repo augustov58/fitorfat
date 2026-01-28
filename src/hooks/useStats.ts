@@ -99,81 +99,79 @@ export function useStats(users: User[], checkins: CheckinWithUser[], timeRange: 
     return userStats;
   }, [users, checkins, timeRange]);
 
-  // Chart data for comparison
+  // Chart data for comparison (cumulative line chart)
   const chartData = useMemo(() => {
     const today = new Date();
     
     let days: number;
     let labelFormat: string;
-    let groupBy: 'day' | 'week' | 'month';
+    let step: number; // How many days per data point
     
     switch (timeRange) {
       case '7d':
         days = 7;
         labelFormat = 'EEE';
-        groupBy = 'day';
+        step = 1;
         break;
       case '30d':
         days = 30;
         labelFormat = 'MMM d';
-        groupBy = 'day';
+        step = 1;
         break;
       case '90d':
         days = 90;
         labelFormat = 'MMM d';
-        groupBy = 'week';
+        step = 7; // Weekly points
         break;
       case '1y':
         days = 365;
         labelFormat = 'MMM';
-        groupBy = 'month';
+        step = 14; // Bi-weekly points
         break;
     }
 
-    const dataPoints: Record<string, Record<string, string | number>> = {};
+    // Get all checkins in range per user
+    const startDate = subDays(today, days);
+    const userCheckinDates: Record<string, Set<string>> = {};
     
-    // Initialize data points
-    for (let i = days - 1; i >= 0; i--) {
-      const date = subDays(today, i);
-      let key: string;
-      
-      if (groupBy === 'day') {
-        key = format(date, 'yyyy-MM-dd');
-      } else if (groupBy === 'week') {
-        key = format(startOfWeek(date, { weekStartsOn: 1 }), 'yyyy-MM-dd');
-      } else {
-        key = format(date, 'yyyy-MM');
-      }
-      
-      if (!dataPoints[key]) {
-        dataPoints[key] = { label: format(date, labelFormat) };
-        users.forEach(u => {
-          dataPoints[key][u.name] = 0;
-        });
-      }
-    }
-
-    // Count checkins
+    users.forEach(u => {
+      userCheckinDates[u.name] = new Set();
+    });
+    
     checkins.forEach(c => {
       const date = parseISO(c.date);
-      if (date > today || date < subDays(today, days)) return;
-      
-      let key: string;
-      if (groupBy === 'day') {
-        key = c.date;
-      } else if (groupBy === 'week') {
-        key = format(startOfWeek(date, { weekStartsOn: 1 }), 'yyyy-MM-dd');
-      } else {
-        key = format(date, 'yyyy-MM');
-      }
-      
-      if (dataPoints[key] && c.user) {
-        const current = dataPoints[key][c.user.name];
-        dataPoints[key][c.user.name] = (typeof current === 'number' ? current : 0) + 1;
+      if (date <= today && date >= startDate && c.user) {
+        userCheckinDates[c.user.name]?.add(c.date);
       }
     });
 
-    return Object.values(dataPoints);
+    // Build cumulative data points
+    const dataPoints: Array<Record<string, string | number>> = [];
+    
+    for (let i = days; i >= 0; i -= step) {
+      const date = subDays(today, i);
+      const dateStr = format(date, 'yyyy-MM-dd');
+      
+      const point: Record<string, string | number> = {
+        label: format(date, labelFormat),
+        date: dateStr
+      };
+      
+      // Count cumulative checkins up to this date for each user
+      users.forEach(u => {
+        let count = 0;
+        userCheckinDates[u.name]?.forEach(checkinDate => {
+          if (checkinDate <= dateStr) {
+            count++;
+          }
+        });
+        point[u.name] = count;
+      });
+      
+      dataPoints.push(point);
+    }
+
+    return dataPoints;
   }, [users, checkins, timeRange]);
 
   return { stats, chartData };

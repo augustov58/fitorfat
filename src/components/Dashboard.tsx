@@ -5,7 +5,7 @@ import {
   Trophy, Target, Trash2, X, Loader2, LogOut, Copy, Check
 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, addMonths, subMonths, parseISO } from 'date-fns';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { useGroup } from '../hooks/useGroup';
 import { useStats } from '../hooks/useStats';
 import { WORKOUT_TYPES } from '../types';
@@ -289,7 +289,7 @@ export function Dashboard() {
 
           <div className="h-48">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData}>
+              <LineChart data={chartData}>
                 <XAxis 
                   dataKey="label" 
                   tick={{ fill: '#94a3b8', fontSize: 10 }}
@@ -309,14 +309,17 @@ export function Dashboard() {
                 />
                 <Legend />
                 {users.map(user => (
-                  <Bar
+                  <Line
                     key={user.id}
+                    type="monotone"
                     dataKey={user.name}
-                    fill={user.color}
-                    radius={[4, 4, 0, 0]}
+                    stroke={user.color}
+                    strokeWidth={2}
+                    dot={{ fill: user.color, strokeWidth: 0, r: 3 }}
+                    activeDot={{ r: 5, strokeWidth: 0 }}
                   />
                 ))}
-              </BarChart>
+              </LineChart>
             </ResponsiveContainer>
           </div>
         </div>
