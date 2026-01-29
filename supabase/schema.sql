@@ -49,9 +49,10 @@ ALTER TABLE checkins ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Anyone can read groups" ON groups FOR SELECT USING (true);
 CREATE POLICY "Anyone can create groups" ON groups FOR INSERT WITH CHECK (true);
 
--- Users: anyone can read and create
+-- Users: anyone can read, create, and delete
 CREATE POLICY "Anyone can read users" ON users FOR SELECT USING (true);
 CREATE POLICY "Anyone can create users" ON users FOR INSERT WITH CHECK (true);
+CREATE POLICY "Anyone can delete users" ON users FOR DELETE USING (true);
 
 -- Checkins: anyone can read, create, and delete
 CREATE POLICY "Anyone can read checkins" ON checkins FOR SELECT USING (true);
