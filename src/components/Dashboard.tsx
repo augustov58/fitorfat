@@ -2,12 +2,13 @@ import { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
   Dumbbell, ChevronLeft, ChevronRight, Flame, 
-  Trophy, Target, Trash2, X, Loader2, LogOut, Copy, Check, UserMinus
+  Trophy, Target, Trash2, X, Loader2, LogOut, Copy, Check, UserMinus, Sun, Moon
 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, addMonths, subMonths, parseISO } from 'date-fns';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { useGroup } from '../hooks/useGroup';
 import { useStats } from '../hooks/useStats';
+import { useTheme } from '../hooks/useTheme';
 import { WORKOUT_TYPES } from '../types';
 import type { TimeRange, CheckinWithUser } from '../types';
 
@@ -19,6 +20,7 @@ export function Dashboard() {
   const { group, users, checkins, loading, addCheckin, deleteCheckin, updateCheckin, deleteUser, error, clearError } = useGroup(groupId || null);
   const [timeRange, setTimeRange] = useState<TimeRange>('30d');
   const { stats, chartData } = useStats(users, checkins, timeRange);
+  const { theme, toggleTheme } = useTheme();
   
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [showCheckinModal, setShowCheckinModal] = useState(false);
@@ -188,6 +190,13 @@ export function Dashboard() {
               </button>
             </div>
           </div>
+          <button
+            onClick={toggleTheme}
+            className="p-2 text-slate-400 hover:text-yellow-400 hover:bg-slate-800 rounded-lg transition-all"
+            title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
+          >
+            {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+          </button>
           <button
             onClick={() => setShowDeleteConfirm(true)}
             className="p-2 text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded-lg transition-all"
