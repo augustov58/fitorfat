@@ -5,7 +5,7 @@ import {
   Trophy, Target, Trash2, X, Loader2, LogOut, Copy, Check, UserMinus
 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, addMonths, subMonths, parseISO } from 'date-fns';
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { useGroup } from '../hooks/useGroup';
 import { useStats } from '../hooks/useStats';
 import { WORKOUT_TYPES } from '../types';
@@ -346,27 +346,31 @@ export function Dashboard() {
             </div>
           </div>
 
-          <div className="h-48">
+          <div className="h-52">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData}>
+              <LineChart data={chartData} margin={{ top: 5, right: 5, bottom: 5, left: 0 }}>
                 <XAxis 
                   dataKey="label" 
                   tick={{ fill: '#94a3b8', fontSize: 10 }}
                   axisLine={{ stroke: '#475569' }}
+                  interval="preserveStartEnd"
                 />
                 <YAxis 
                   tick={{ fill: '#94a3b8', fontSize: 10 }}
                   axisLine={{ stroke: '#475569' }}
                   allowDecimals={false}
+                  width={30}
                 />
                 <Tooltip
                   contentStyle={{
                     backgroundColor: '#1e293b',
                     border: '1px solid #475569',
-                    borderRadius: '8px'
+                    borderRadius: '8px',
+                    fontSize: '12px'
                   }}
+                  position={{ y: 0 }}
+                  wrapperStyle={{ zIndex: 100 }}
                 />
-                <Legend />
                 {users.map(user => (
                   <Line
                     key={user.id}
@@ -380,6 +384,19 @@ export function Dashboard() {
                 ))}
               </LineChart>
             </ResponsiveContainer>
+            
+            {/* Custom Legend */}
+            <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 mt-2">
+              {users.map(user => (
+                <div key={user.id} className="flex items-center gap-1.5 text-xs">
+                  <div 
+                    className="w-2.5 h-2.5 rounded-full" 
+                    style={{ backgroundColor: user.color }}
+                  />
+                  <span className="text-slate-300">{user.name}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
