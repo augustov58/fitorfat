@@ -194,6 +194,36 @@ export function useGroup(groupId: string | null) {
     return true;
   }, []);
 
+  // Update a checkin
+  const updateCheckin = useCallback(async (
+    checkinId: string,
+    durationMinutes?: number | null,
+    workoutType?: string | null,
+    notes?: string | null
+  ): Promise<boolean> => {
+    const { data, error } = await supabase
+      .from('checkins')
+      .update({
+        duration_minutes: durationMinutes,
+        workout_type: workoutType,
+        notes: notes
+      })
+      .eq('id', checkinId)
+      .select(`
+        *,
+        user:users(*)
+      `)
+      .single();
+
+    if (error) {
+      setError(error.message);
+      return false;
+    }
+
+    setCheckins(prev => prev.map(c => c.id === checkinId ? data : c));
+    return true;
+  }, []);
+
   // Delete a user (and their checkins via CASCADE)
   const deleteUser = useCallback(async (userId: string): Promise<boolean> => {
     const { error } = await supabase
@@ -222,6 +252,7 @@ export function useGroup(groupId: string | null) {
     addUser,
     addCheckin,
     deleteCheckin,
+    updateCheckin,
     deleteUser,
     clearError: () => setError(null)
   };

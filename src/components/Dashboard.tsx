@@ -16,13 +16,14 @@ export function Dashboard() {
   const navigate = useNavigate();
   const userId = localStorage.getItem('fitorfat_user_id');
   
-  const { group, users, checkins, loading, addCheckin, deleteCheckin, deleteUser, error, clearError } = useGroup(groupId || null);
+  const { group, users, checkins, loading, addCheckin, deleteCheckin, updateCheckin, deleteUser, error, clearError } = useGroup(groupId || null);
   const [timeRange, setTimeRange] = useState<TimeRange>('30d');
   const { stats, chartData } = useStats(users, checkins, timeRange);
   
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [showCheckinModal, setShowCheckinModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [editingCheckin, setEditingCheckin] = useState<CheckinWithUser | null>(null);
   const [checkinForm, setCheckinForm] = useState({
     duration: '',
     workoutType: '',
@@ -59,8 +60,23 @@ export function Dashboard() {
   const handleDayClick = (date: Date) => {
     const dateStr = format(date, 'yyyy-MM-dd');
     setSelectedDate(dateStr);
+    
+    // Check if user already has a checkin for this date
+    const existingCheckin = checkins.find(c => c.user_id === userId && c.date === dateStr);
+    
+    if (existingCheckin) {
+      setEditingCheckin(existingCheckin);
+      setCheckinForm({
+        duration: existingCheckin.duration_minutes?.toString() || '',
+        workoutType: existingCheckin.workout_type || '',
+        notes: existingCheckin.notes || ''
+      });
+    } else {
+      setEditingCheckin(null);
+      setCheckinForm({ duration: '', workoutType: '', notes: '' });
+    }
+    
     setShowCheckinModal(true);
-    setCheckinForm({ duration: '', workoutType: '', notes: '' });
     clearError();
   };
 
@@ -69,16 +85,42 @@ export function Dashboard() {
     if (!userId || !selectedDate) return;
     
     setSubmitting(true);
-    const result = await addCheckin(
-      userId,
-      selectedDate,
-      checkinForm.duration ? parseInt(checkinForm.duration) : undefined,
-      checkinForm.workoutType || undefined,
-      checkinForm.notes || undefined
-    );
     
-    if (result) {
+    let success = false;
+    if (editingCheckin) {
+      // Update existing checkin
+      success = await updateCheckin(
+        editingCheckin.id,
+        checkinForm.duration ? parseInt(checkinForm.duration) : null,
+        checkinForm.workoutType || null,
+        checkinForm.notes || null
+      );
+    } else {
+      // Create new checkin
+      const result = await addCheckin(
+        userId,
+        selectedDate,
+        checkinForm.duration ? parseInt(checkinForm.duration) : undefined,
+        checkinForm.workoutType || undefined,
+        checkinForm.notes || undefined
+      );
+      success = !!result;
+    }
+    
+    if (success) {
       setShowCheckinModal(false);
+      setEditingCheckin(null);
+    }
+    setSubmitting(false);
+  };
+
+  const handleDeleteCheckin = async () => {
+    if (!editingCheckin) return;
+    setSubmitting(true);
+    const success = await deleteCheckin(editingCheckin.id);
+    if (success) {
+      setShowCheckinModal(false);
+      setEditingCheckin(null);
     }
     setSubmitting(false);
   };
@@ -424,10 +466,10 @@ export function Dashboard() {
           <div className="w-full max-w-md bg-slate-800 rounded-2xl border border-slate-700 animate-fade-in">
             <div className="flex items-center justify-between p-4 border-b border-slate-700">
               <h3 className="font-semibold">
-                Check In - {format(parseISO(selectedDate), 'MMM d, yyyy')}
+                {editingCheckin ? 'Edit Workout' : 'Check In'} - {format(parseISO(selectedDate), 'MMM d, yyyy')}
               </h3>
               <button
-                onClick={() => setShowCheckinModal(false)}
+                onClick={() => { setShowCheckinModal(false); setEditingCheckin(null); }}
                 className="p-2 hover:bg-slate-700 rounded-lg transition-all"
               >
                 <X className="w-5 h-5" />
@@ -435,12 +477,6 @@ export function Dashboard() {
             </div>
 
             <form onSubmit={handleCheckin} className="p-4 space-y-4">
-              {/* Already checked in warning */}
-              {checkins.find(c => c.user_id === userId && c.date === selectedDate) && (
-                <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg text-amber-400 text-sm">
-                  You already checked in on this day!
-                </div>
-              )}
 
               {/* Workout Type */}
               <div>
@@ -499,20 +535,42 @@ export function Dashboard() {
                 <p className="text-red-400 text-sm">{error}</p>
               )}
 
-              <button
-                type="submit"
-                disabled={submitting || !!checkins.find(c => c.user_id === userId && c.date === selectedDate)}
-                className="w-full py-3 bg-emerald-600 rounded-xl font-semibold hover:bg-emerald-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                {submitting ? (
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                ) : (
-                  <>
-                    <Dumbbell className="w-5 h-5" />
-                    Log Workout
-                  </>
-                )}
-              </button>
+              {editingCheckin ? (
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={handleDeleteCheckin}
+                    disabled={submitting}
+                    className="flex-1 py-3 bg-red-600/20 border border-red-600 text-red-400 rounded-xl font-semibold hover:bg-red-600 hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Trash2 className="w-5 h-5" />}
+                    Delete
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className="flex-1 py-3 bg-emerald-600 rounded-xl font-semibold hover:bg-emerald-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5" />}
+                    Save
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="w-full py-3 bg-emerald-600 rounded-xl font-semibold hover:bg-emerald-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {submitting ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <>
+                      <Dumbbell className="w-5 h-5" />
+                      Log Workout
+                    </>
+                  )}
+                </button>
+              )}
             </form>
           </div>
         </div>
