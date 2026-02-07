@@ -135,10 +135,12 @@ export function Dashboard() {
 
   const handleDeleteUser = async () => {
     if (!userId) return;
+    if (!confirm('Are you sure you want to leave this group? Your check-ins will be deleted.')) return;
     const success = await deleteUser(userId);
     if (success) {
       localStorage.removeItem('fitorfat_user_id');
-      navigate(`/group/${groupId}`);
+      localStorage.removeItem('fitorfat_group_id');
+      navigate('/');
     }
   };
 
