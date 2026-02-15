@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
   Dumbbell, ChevronLeft, ChevronRight, Flame, 
-  Trophy, Target, Trash2, X, Loader2, LogOut, Copy, Check, UserMinus, Sun, Moon
+  Trophy, Target, Trash2, X, Loader2, LogOut, Copy, Check, UserMinus, Sun, Moon, Plus, Pencil
 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, addMonths, subMonths, parseISO } from 'date-fns';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
@@ -36,6 +36,7 @@ export function Dashboard() {
   const [showCheckinModal, setShowCheckinModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [editingCheckin, setEditingCheckin] = useState<CheckinWithUser | null>(null);
+  const [showAddForm, setShowAddForm] = useState(false); // Show add form vs list view
   const [checkinForm, setCheckinForm] = useState({
     duration: '',
     workoutType: '',
@@ -69,27 +70,41 @@ export function Dashboard() {
     return map;
   }, [checkins]);
 
+  // Get user's checkins for selected date
+  const userCheckinsForDate = useMemo(() => {
+    if (!selectedDate || !userId) return [];
+    return checkins.filter(c => c.user_id === userId && c.date === selectedDate);
+  }, [checkins, selectedDate, userId]);
+
   const handleDayClick = (date: Date) => {
     const dateStr = format(date, 'yyyy-MM-dd');
     setSelectedDate(dateStr);
+    setEditingCheckin(null);
+    setCheckinForm({ duration: '', workoutType: '', notes: '' });
     
-    // Check if user already has a checkin for this date
-    const existingCheckin = checkins.find(c => c.user_id === userId && c.date === dateStr);
+    // Check if user has any checkins for this date
+    const hasCheckins = checkins.some(c => c.user_id === userId && c.date === dateStr);
     
-    if (existingCheckin) {
-      setEditingCheckin(existingCheckin);
-      setCheckinForm({
-        duration: existingCheckin.duration_minutes?.toString() || '',
-        workoutType: existingCheckin.workout_type || '',
-        notes: existingCheckin.notes || ''
-      });
-    } else {
-      setEditingCheckin(null);
-      setCheckinForm({ duration: '', workoutType: '', notes: '' });
-    }
-    
+    // If no checkins, go straight to add form. Otherwise show list.
+    setShowAddForm(!hasCheckins);
     setShowCheckinModal(true);
     clearError();
+  };
+
+  const handleEditCheckin = (checkin: CheckinWithUser) => {
+    setEditingCheckin(checkin);
+    setCheckinForm({
+      duration: checkin.duration_minutes?.toString() || '',
+      workoutType: checkin.workout_type || '',
+      notes: checkin.notes || ''
+    });
+    setShowAddForm(true);
+  };
+
+  const handleAddNew = () => {
+    setEditingCheckin(null);
+    setCheckinForm({ duration: '', workoutType: '', notes: '' });
+    setShowAddForm(true);
   };
 
   const handleCheckin = async (e: React.FormEvent) => {
@@ -120,8 +135,10 @@ export function Dashboard() {
     }
     
     if (success) {
-      setShowCheckinModal(false);
+      // Go back to list view if there are other checkins, otherwise close modal
       setEditingCheckin(null);
+      setCheckinForm({ duration: '', workoutType: '', notes: '' });
+      setShowAddForm(false); // Go back to list view
     }
     setSubmitting(false);
   };
@@ -131,8 +148,9 @@ export function Dashboard() {
     setSubmitting(true);
     const success = await deleteCheckin(editingCheckin.id);
     if (success) {
-      setShowCheckinModal(false);
       setEditingCheckin(null);
+      setCheckinForm({ duration: '', workoutType: '', notes: '' });
+      setShowAddForm(false); // Go back to list view
     }
     setSubmitting(false);
   };
@@ -525,113 +543,170 @@ export function Dashboard() {
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="w-full max-w-md bg-slate-800 rounded-2xl border border-slate-700 animate-fade-in">
             <div className="flex items-center justify-between p-4 border-b border-slate-700">
-              <h3 className="font-semibold">
-                {editingCheckin ? 'Edit Workout' : 'Check In'} - {format(parseISO(selectedDate), 'MMM d, yyyy')}
+              <h3 className="font-semibold flex items-center gap-2">
+                {showAddForm && userCheckinsForDate.length > 0 && (
+                  <button
+                    onClick={() => { setShowAddForm(false); setEditingCheckin(null); }}
+                    className="p-1 hover:bg-slate-700 rounded transition-all"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                )}
+                {showAddForm 
+                  ? (editingCheckin ? 'Edit Workout' : 'Add Workout')
+                  : 'Workouts'
+                } - {format(parseISO(selectedDate), 'MMM d, yyyy')}
               </h3>
               <button
-                onClick={() => { setShowCheckinModal(false); setEditingCheckin(null); }}
+                onClick={() => { setShowCheckinModal(false); setEditingCheckin(null); setShowAddForm(false); }}
                 className="p-2 hover:bg-slate-700 rounded-lg transition-all"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleCheckin} className="p-4 space-y-4">
-
-              {/* Workout Type */}
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Workout Type
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {WORKOUT_TYPES.map(type => (
-                    <button
-                      key={type}
-                      type="button"
-                      onClick={() => setCheckinForm(f => ({ ...f, workoutType: f.workoutType === type ? '' : type }))}
-                      className={`px-3 py-1.5 rounded-full text-sm transition-all ${
-                        checkinForm.workoutType === type
-                          ? 'bg-emerald-600 text-white'
-                          : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-                      }`}
-                    >
-                      {type}
-                    </button>
-                  ))}
+            {!showAddForm ? (
+              /* List View - Show existing checkins + Add button */
+              <div className="p-4 space-y-3">
+                {userCheckinsForDate.length > 0 ? (
+                  <>
+                    {userCheckinsForDate.map(checkin => (
+                      <div
+                        key={checkin.id}
+                        className="flex items-center gap-3 p-3 bg-slate-700/50 rounded-xl"
+                      >
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <Dumbbell className="w-4 h-4 text-emerald-500" />
+                            <span className="font-medium">
+                              {checkin.workout_type || 'Workout'}
+                            </span>
+                          </div>
+                          <div className="text-sm text-slate-400 mt-1">
+                            {checkin.duration_minutes && `${checkin.duration_minutes} min`}
+                            {checkin.duration_minutes && checkin.notes && ' • '}
+                            {checkin.notes}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleEditCheckin(checkin)}
+                          className="p-2 text-slate-400 hover:text-white hover:bg-slate-600 rounded-lg transition-all"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </>
+                ) : (
+                  <p className="text-center text-slate-400 py-4">No workouts logged</p>
+                )}
+                
+                <button
+                  onClick={handleAddNew}
+                  className="w-full py-3 bg-emerald-600 rounded-xl font-semibold hover:bg-emerald-500 transition-all flex items-center justify-center gap-2"
+                >
+                  <Plus className="w-5 h-5" />
+                  Add {userCheckinsForDate.length > 0 ? 'Another ' : ''}Workout
+                </button>
+              </div>
+            ) : (
+              /* Add/Edit Form */
+              <form onSubmit={handleCheckin} className="p-4 space-y-4">
+                {/* Workout Type */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Workout Type
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {WORKOUT_TYPES.map(type => (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => setCheckinForm(f => ({ ...f, workoutType: f.workoutType === type ? '' : type }))}
+                        className={`px-3 py-1.5 rounded-full text-sm transition-all ${
+                          checkinForm.workoutType === type
+                            ? 'bg-emerald-600 text-white'
+                            : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                        }`}
+                      >
+                        {type}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
 
-              {/* Duration */}
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Duration (minutes)
-                </label>
-                <input
-                  type="number"
-                  value={checkinForm.duration}
-                  onChange={e => setCheckinForm(f => ({ ...f, duration: e.target.value }))}
-                  placeholder="e.g., 60"
-                  min="1"
-                  max="480"
-                  className="w-full px-4 py-3 bg-slate-700 rounded-xl border border-slate-600 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-all"
-                />
-              </div>
+                {/* Duration */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Duration (minutes)
+                  </label>
+                  <input
+                    type="number"
+                    value={checkinForm.duration}
+                    onChange={e => setCheckinForm(f => ({ ...f, duration: e.target.value }))}
+                    placeholder="e.g., 60"
+                    min="1"
+                    max="480"
+                    className="w-full px-4 py-3 bg-slate-700 rounded-xl border border-slate-600 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-all"
+                  />
+                </div>
 
-              {/* Notes */}
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Notes (optional)
-                </label>
-                <textarea
-                  value={checkinForm.notes}
-                  onChange={e => setCheckinForm(f => ({ ...f, notes: e.target.value }))}
-                  placeholder="What did you do?"
-                  rows={2}
-                  className="w-full px-4 py-3 bg-slate-700 rounded-xl border border-slate-600 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-all resize-none"
-                />
-              </div>
+                {/* Notes */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Notes (optional)
+                  </label>
+                  <textarea
+                    value={checkinForm.notes}
+                    onChange={e => setCheckinForm(f => ({ ...f, notes: e.target.value }))}
+                    placeholder="What did you do?"
+                    rows={2}
+                    className="w-full px-4 py-3 bg-slate-700 rounded-xl border border-slate-600 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-all resize-none"
+                  />
+                </div>
 
-              {error && (
-                <p className="text-red-400 text-sm">{error}</p>
-              )}
+                {error && (
+                  <p className="text-red-400 text-sm">{error}</p>
+                )}
 
-              {editingCheckin ? (
-                <div className="flex gap-3">
-                  <button
-                    type="button"
-                    onClick={handleDeleteCheckin}
-                    disabled={submitting}
-                    className="flex-1 py-3 bg-red-600/20 border border-red-600 text-red-400 rounded-xl font-semibold hover:bg-red-600 hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                  >
-                    {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Trash2 className="w-5 h-5" />}
-                    Delete
-                  </button>
+                {editingCheckin ? (
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={handleDeleteCheckin}
+                      disabled={submitting}
+                      className="flex-1 py-3 bg-red-600/20 border border-red-600 text-red-400 rounded-xl font-semibold hover:bg-red-600 hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Trash2 className="w-5 h-5" />}
+                      Delete
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={submitting}
+                      className="flex-1 py-3 bg-emerald-600 rounded-xl font-semibold hover:bg-emerald-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5" />}
+                      Save
+                    </button>
+                  </div>
+                ) : (
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="flex-1 py-3 bg-emerald-600 rounded-xl font-semibold hover:bg-emerald-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    className="w-full py-3 bg-emerald-600 rounded-xl font-semibold hover:bg-emerald-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                   >
-                    {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5" />}
-                    Save
+                    {submitting ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <>
+                        <Dumbbell className="w-5 h-5" />
+                        Log Workout
+                      </>
+                    )}
                   </button>
-                </div>
-              ) : (
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="w-full py-3 bg-emerald-600 rounded-xl font-semibold hover:bg-emerald-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  {submitting ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                  ) : (
-                    <>
-                      <Dumbbell className="w-5 h-5" />
-                      Log Workout
-                    </>
-                  )}
-                </button>
-              )}
-            </form>
+                )}
+              </form>
+            )}
           </div>
         </div>
       )}
