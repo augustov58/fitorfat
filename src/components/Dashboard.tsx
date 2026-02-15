@@ -8,9 +8,18 @@ import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isTod
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { useGroup } from '../hooks/useGroup';
 import { useStats } from '../hooks/useStats';
+import type { WorkoutFilter } from '../hooks/useStats';
 import { useTheme } from '../hooks/useTheme';
 import { WORKOUT_TYPES } from '../types';
 import type { TimeRange, CheckinWithUser } from '../types';
+
+const WORKOUT_FILTERS: { value: WorkoutFilter; label: string }[] = [
+  { value: 'all', label: 'All' },
+  { value: 'Strength', label: 'Strength' },
+  { value: 'Cardio', label: 'Cardio' },
+  { value: 'Running', label: 'Running' },
+  { value: 'Yoga', label: 'Yoga' },
+];
 
 export function Dashboard() {
   const { groupId } = useParams<{ groupId: string }>();
@@ -19,7 +28,8 @@ export function Dashboard() {
   
   const { group, users, checkins, loading, addCheckin, deleteCheckin, updateCheckin, deleteUser, error, clearError } = useGroup(groupId || null);
   const [timeRange, setTimeRange] = useState<TimeRange>('30d');
-  const { stats, chartData } = useStats(users, checkins, timeRange);
+  const [workoutFilter, setWorkoutFilter] = useState<WorkoutFilter>('all');
+  const { stats, chartData } = useStats(users, checkins, timeRange, workoutFilter);
   const { theme, toggleTheme } = useTheme();
   
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -338,7 +348,7 @@ export function Dashboard() {
 
         {/* Comparison Chart */}
         <div className="bg-slate-800/50 rounded-2xl p-4 border border-slate-700">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-2">
             <h2 className="font-semibold">Comparison</h2>
             <div className="flex gap-1 bg-slate-700 rounded-lg p-1">
               {(['7d', '30d', '90d', '1y'] as TimeRange[]).map(range => (
@@ -355,6 +365,23 @@ export function Dashboard() {
                 </button>
               ))}
             </div>
+          </div>
+          
+          {/* Workout Type Filter */}
+          <div className="flex gap-1 mb-4 overflow-x-auto pb-1">
+            {WORKOUT_FILTERS.map(filter => (
+              <button
+                key={filter.value}
+                onClick={() => setWorkoutFilter(filter.value)}
+                className={`px-3 py-1.5 text-xs rounded-full whitespace-nowrap transition-all ${
+                  workoutFilter === filter.value
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-slate-700 text-slate-400 hover:text-white'
+                }`}
+              >
+                {filter.label}
+              </button>
+            ))}
           </div>
 
           <div className="h-52">
@@ -413,7 +440,12 @@ export function Dashboard() {
 
         {/* Leaderboard */}
         <div className="bg-slate-800/50 rounded-2xl p-4 border border-slate-700">
-          <h2 className="font-semibold mb-4">Leaderboard ({timeRange})</h2>
+          <h2 className="font-semibold mb-4">
+            Leaderboard ({timeRange})
+            {workoutFilter !== 'all' && (
+              <span className="ml-2 text-xs font-normal text-emerald-500">• {workoutFilter}</span>
+            )}
+          </h2>
           <div className="space-y-3">
             {stats.map((s, i) => (
               <div

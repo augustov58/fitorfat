@@ -4,7 +4,14 @@ import type { User, CheckinWithUser, UserStats, TimeRange } from '../types';
 
 const WEEKLY_GOAL = 4;
 
-export function useStats(users: User[], checkins: CheckinWithUser[], timeRange: TimeRange) {
+export type WorkoutFilter = 'all' | 'Strength' | 'Cardio' | 'Running' | 'Yoga';
+
+export function useStats(users: User[], checkins: CheckinWithUser[], timeRange: TimeRange, workoutFilter: WorkoutFilter = 'all') {
+  // Filter checkins by workout type if filter is set
+  const filteredCheckins = useMemo(() => {
+    if (workoutFilter === 'all') return checkins;
+    return checkins.filter(c => c.workout_type === workoutFilter);
+  }, [checkins, workoutFilter]);
   const stats = useMemo(() => {
     const today = new Date();
     const todayStr = format(today, 'yyyy-MM-dd');
@@ -32,7 +39,7 @@ export function useStats(users: User[], checkins: CheckinWithUser[], timeRange: 
 
     // Calculate stats for each user
     const userStats: UserStats[] = users.map(user => {
-      const userCheckins = checkins
+      const userCheckins = filteredCheckins
         .filter(c => c.user_id === user.id)
         .sort((a, b) => b.date.localeCompare(a.date)); // newest first
 
@@ -97,7 +104,7 @@ export function useStats(users: User[], checkins: CheckinWithUser[], timeRange: 
     userStats.sort((a, b) => b.totalCheckins - a.totalCheckins);
 
     return userStats;
-  }, [users, checkins, timeRange]);
+  }, [users, filteredCheckins, timeRange]);
 
   // Chart data for comparison (cumulative line chart)
   const chartData = useMemo(() => {
@@ -138,7 +145,7 @@ export function useStats(users: User[], checkins: CheckinWithUser[], timeRange: 
       userCheckinDates[u.name] = new Set();
     });
     
-    checkins.forEach(c => {
+    filteredCheckins.forEach(c => {
       const date = parseISO(c.date);
       if (date <= today && date >= startDate && c.user) {
         userCheckinDates[c.user.name]?.add(c.date);
@@ -172,7 +179,7 @@ export function useStats(users: User[], checkins: CheckinWithUser[], timeRange: 
     }
 
     return dataPoints;
-  }, [users, checkins, timeRange]);
+  }, [users, filteredCheckins, timeRange]);
 
   return { stats, chartData };
 }
